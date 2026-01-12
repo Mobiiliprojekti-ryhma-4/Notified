@@ -7,10 +7,10 @@ const Drawer = createDrawerNavigator()
 
 export default function DrawerNavigator() {
   return (
-    <Drawer.Navigator initialRouteName="Home">
-      <Drawer.Screen name="Home" component={HomeScreen} />
-      <Drawer.Screen name="Second" component={SecondScreen} />
-    <Drawer.Screen name="Third" component={ThirdScreen} />
+    <Drawer.Navigator initialRouteName="HomeScreen">
+      <Drawer.Screen name="HomeScreen" component={HomeScreen} />
+      <Drawer.Screen name="SecondScreen" component={SecondScreen} />
+    <Drawer.Screen name="ThirdScreen" component={ThirdScreen} />
     </Drawer.Navigator>
   )
 }
