@@ -12,3 +12,7 @@ npx expo install react-native-gesture-handler react-native-reanimated
 
 npm install react-native-gesture-handler react-native-reanimated
 
+npm install firebase
+npx expo install expo-dev-client
+
+npx expo install @react-native-async-storage/async-storage
