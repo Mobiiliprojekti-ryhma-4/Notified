@@ -1,7 +1,7 @@
 import { View, Text, Button,TextInput, StyleSheet, Alert } from 'react-native'
 import React from 'react'
 import { useNavigation } from '@react-navigation/native'
-import { login } from '../services/authService'
+import { login, register } from '../services/authService'
 import { useState } from 'react'
 
 export default function LoginScreen() {
@@ -10,7 +10,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-
+  const [isRegister, setIsRegister] = useState(false)
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -20,10 +20,15 @@ export default function LoginScreen() {
 
      try {
       setLoading(true)
+      if (isRegister) {
+        await register(email, password)
+      }else{
       await login(email, password)
+      }
       navigation.navigate('Home')
     } catch (error: any) {
-      Alert.alert('Login failed', error.message)
+      Alert.alert(isRegister ? 'Registration failed' : 'Login failed',
+         error.message)
     } finally {
       setLoading(false)
     }
@@ -55,7 +60,14 @@ export default function LoginScreen() {
         onPress={handleLogin}
         disabled={loading}
         />
-  
+  <Button
+  title={
+    isRegister
+      ? 'Already have an account? Login'
+      : "Don't have an account? Sign up"
+  }
+  onPress={() => setIsRegister(!isRegister)}
+/>
         </View>
   )
 }
