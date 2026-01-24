@@ -5,20 +5,24 @@ import SecondScreen from '../screens/SecondScreen'
 import ThirdScreen from '../screens/ThirdScreen'
 import ProfileScreen from '../screens/ProfileScreen'
 import CustomDrawer from './CustomDrawer'
+import ServiceRequestForm from '../screens/ServiceRequestForm'
 
 const Drawer = createDrawerNavigator()
 
 export default function DrawerNavigator() {
+
   return (
     <Drawer.Navigator
       initialRouteName="HomeScreen"
       drawerContent={(props) => <CustomDrawer {...props} />}
     >
+        
     
       <Drawer.Screen name="HomeScreen" component={HomeScreen} />
       <Drawer.Screen name="SecondScreen" component={SecondScreen} />
     <Drawer.Screen name="ThirdScreen" component={ThirdScreen} />
     <Drawer.Screen name="Asetukset" component={ProfileScreen} />
+    <Drawer.Screen name="Vikailmoitus" component={ServiceRequestForm} />
     </Drawer.Navigator>
   )
 }
