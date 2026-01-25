@@ -28,3 +28,4 @@ npx expo install firebase
 npx expo install @react-native-async-storage/async-storage
 npx expo install expo-image-picker expo-location
 npx expo install expo-constants
+npx expo install react-native-maps expo-location

@@ -6,6 +6,7 @@ import { CommonActions, useNavigation } from '@react-navigation/native'
 import { logout } from '../services/authService'
 
 export default function CustomDrawer(props: any) {
+  
   const navigation = useNavigation()
 
   const handleLogout = async () => {
