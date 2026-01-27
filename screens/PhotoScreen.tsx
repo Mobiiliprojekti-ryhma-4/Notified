@@ -3,7 +3,7 @@ import { View,Text,StyleSheet,Image,Alert,ActivityIndicator,Pressable,SafeAreaVi
 import * as ImagePicker from 'expo-image-picker'
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { storage } from '../src/firebase'
+import { storage } from '../firebase/Config'
 import colors from '../theme/colors'
 
 async function uriToBlob(uri: string): Promise<Blob> {  //Muunnetaan paikallisen tiedosto-URI:n blobiksi

@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { updateProfile } from 'firebase/auth'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { auth } from '../firebase/Config'
-import {  storage } from '../src/firebase'
+import {  storage } from '../firebase/Config'
 
 export const pickAndUploadProfileImage = async (): Promise<string | null> => {
   const user = auth.currentUser

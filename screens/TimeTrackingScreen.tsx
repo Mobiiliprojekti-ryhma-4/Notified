@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, StyleSheet,SafeAreaView, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import colors from "../theme/colors"; 
-
 type GeoPoint = { latitude: number; longitude: number };
 
 
