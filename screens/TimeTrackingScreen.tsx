@@ -1,29 +1,46 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import colors from "../theme/colors"; 
+import colors from "../theme/colors";
+
+import {
+  addDoc,
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore/lite";
+
+import { auth, db } from "../firebase/Config";
 
 type GeoPoint = { latitude: number; longitude: number };
 
-
-// Työajan "leimaus"
 type Punch = {
   atISO: string;
   point: GeoPoint;
 };
 
-//Työpäivä
 type WorkSession = {
   id: string;
+  remoteId?: string;
   started: Punch;
   ended?: Punch;
 };
 
-const STORAGE_KEY = "work_sessions_v1"; // Avain, jolla tallentuu paikallisesti asyncstorageen. Myöhemmin lisätään firestoreen käyttäjälle
+const STORAGE_KEY = "work_sessions_v1";
 
-function formatDuration(ms: number) { 
+function formatDuration(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
@@ -48,7 +65,6 @@ function timeLabel(iso: string) {
   });
 }
 
-//Paikallinen tallennus Asyncstorageen
 async function loadSessions(): Promise<WorkSession[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
@@ -59,7 +75,7 @@ async function loadSessions(): Promise<WorkSession[]> {
   }
 }
 
-async function saveSessions(sessions: WorkSession[]) { //Varsinainen tallennus
+async function saveSessions(sessions: WorkSession[]) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
 }
 
@@ -70,19 +86,19 @@ export default function WorkdayMapScreen() {
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [showPast, setShowPast] = useState(false);
 
-  // MAhdollisesti aktiivinen eli käynnissä oleva työpäivä. Sessio ilam loppuaikaa
+  
+  const [syncingStart, setSyncingStart] = useState(false);
+
   const activeSession = useMemo(
     () => sessions.find((s) => !s.ended),
     [sessions]
   );
 
-  // Mennyt sessio, jossa loppuaika
   const pastSessions = useMemo(
     () => sessions.filter((s) => !!s.ended),
     [sessions]
   );
 
-  // Alustus, lupa sijainnille, hakee sijainnin ja asettaa käyttöön
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -90,29 +106,51 @@ export default function WorkdayMapScreen() {
       setPermissionGranted(ok);
 
       if (!ok) {
-        Alert.alert("Sijaintilupa puuttuu", "Anna sijaintilupa, jotta paikannus toimii.");
+        Alert.alert(
+          "Sijaintilupa puuttuu",
+          "Anna sijaintilupa, jotta paikannus toimii."
+        );
       }
 
       const stored = await loadSessions();
       setSessions(stored);
 
       if (ok) {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setCurrentPoint({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        setCurrentPoint({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
       }
     })();
   }, []);
 
-  //Haetaan nykyinen sijainti
-  async function getFreshLocation(): Promise<GeoPoint | null> { 
+  async function getFreshLocation(): Promise<GeoPoint | null> {
     if (!permissionGranted) return null;
-    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
     const p = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
     setCurrentPoint(p);
     return p;
   }
 
-  //työpäivän aloitus ja virheen käsittely 
+  // Päivitetään userProfiles/{uid} jotta Consolessa näkee uid -> email
+  async function upsertUserProfile(uid: string, email: string | null) {
+    await setDoc(
+      doc(db, "userProfiles", uid),
+      {
+        uid,
+        email,
+        updatedAt: serverTimestamp(),
+        // halutessasi: createdAt vain jos ei ole olemassa (ei täysin mahdollista lite+setDoc ilman read)
+      },
+      { merge: true }
+    );
+  }
+
   async function handleStart() {
     if (!permissionGranted) {
       Alert.alert("Ei lupaa", "Sijaintilupa tarvitaan.");
@@ -129,16 +167,69 @@ export default function WorkdayMapScreen() {
       return;
     }
 
+    const startedISO = new Date().toISOString();
+    const localId = String(Date.now());
+
+    // 1) Local tallennus heti -> UI reagoi välittömästi
     const newSession: WorkSession = {
-      id: String(Date.now()),
-      started: { atISO: new Date().toISOString(), point },
+      id: localId,
+      remoteId: undefined,
+      started: { atISO: startedISO, point },
     };
 
     const next = [newSession, ...sessions];
     setSessions(next);
     await saveSessions(next);
-  }
 
+    // 2) Firestore sync
+    setSyncingStart(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert(
+          "Ei kirjautunut",
+          "Kirjaudu sisään, jotta tiedot tallentuvat pilveen."
+        );
+        return;
+      }
+
+      const email = user.email ?? null;
+
+      // pidetään profile ajan tasalla
+      await upsertUserProfile(user.uid, email);
+
+      // työpäivä käyttäjän alle
+      const ref = collection(db, "users", user.uid, "workSessions");
+
+      const docRef = await addDoc(ref, {
+        uid: user.uid,
+        email, // <--- lisätty
+        status: "open",
+
+        startedAtISO: startedISO,
+        startedAt: serverTimestamp(),
+        startedPoint: point,
+
+        endedAtISO: null,
+        endedAt: null,
+        endedPoint: null,
+
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        dayKey: startedISO.slice(0, 10),
+      });
+
+      const next2 = next.map((s) =>
+        s.id === localId ? { ...s, remoteId: docRef.id } : s
+      );
+      setSessions(next2);
+      await saveSessions(next2);
+    } catch (e: any) {
+      Alert.alert("Firestore start failed", String(e?.message ?? e));
+    } finally {
+      setSyncingStart(false);
+    }
+  }
 
   async function stopNow() {
     if (!activeSession) return;
@@ -157,72 +248,102 @@ export default function WorkdayMapScreen() {
 
     setSessions(next);
     await saveSessions(next);
+
+    // Firestore update jos remoteId on olemassa
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      if (!activeSession.remoteId) {
+        // Jos start ei tallentunut pilveen, ei voi päivittää sitä siellä
+        return;
+      }
+
+      const ref = doc(
+        db,
+        "users",
+        user.uid,
+        "workSessions",
+        activeSession.remoteId
+      );
+
+      await updateDoc(ref, {
+        status: "closed",
+        endedAtISO: nowISO,
+        endedAt: serverTimestamp(),
+        endedPoint: point,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e: any) {
+      Alert.alert("Firestore stop failed", String(e?.message ?? e));
+    }
   }
 
-  //Työpäivän lopetus
   function handleStopWithConfirm() {
     if (!activeSession) {
       Alert.alert("Ei käynnissä olevaa työpäivää", "Aloita työpäivä ensin.");
       return;
     }
 
-    Alert.alert("Lopeta työpäivä?", "Oletko varma, että haluat lopettaa työpäivän?", [
-      { text: "Peruuta", style: "cancel" },
-      { text: "Lopeta", style: "destructive", onPress: stopNow },
-    ]);
+    Alert.alert(
+      "Lopeta työpäivä?",
+      "Oletko varma, että haluat lopettaa työpäivän?",
+      [
+        { text: "Peruuta", style: "cancel" },
+        { text: "Lopeta", style: "destructive", onPress: stopNow },
+      ]
+    );
   }
-//Alustaa kartan ja jos ei sijaintia näyttää Helsingin koordinaattien perusteella
+
   const region = useMemo(() => {
     const fallback = { latitude: 60.1699, longitude: 24.9384 };
     const p = currentPoint ?? fallback;
     return { ...p, latitudeDelta: 0.02, longitudeDelta: 0.02 };
   }, [currentPoint]);
 
-  
- const CurrentCard = () => {
-  if (!activeSession) {
-    return <Text style={styles.muted}>Ei käynnissä olevaa työpäivää.</Text>;
-  }
+  const CurrentCard = () => {
+    if (!activeSession) {
+      return <Text style={styles.muted}>Ei käynnissä olevaa työpäivää.</Text>;
+    }
 
-  const day = dateLabel(activeSession.started.atISO);
+    const day = dateLabel(activeSession.started.atISO);
 
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{day}</Text>
-      <Text style={styles.cardLine}>Työpäivä käynnissä</Text>
-      <Text style={styles.cardLine}>
-        Aloitus: {timeLabel(activeSession.started.atISO)}
-      </Text>
-      <Text style={styles.cardLine}>
-        Start: {activeSession.started.point.latitude.toFixed(5)},{" "}
-        {activeSession.started.point.longitude.toFixed(5)}
-      </Text>
-    </View>
-  );
-};
-
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{day}</Text>
+        <Text style={styles.cardLine}>Työpäivä käynnissä</Text>
+        <Text style={styles.cardLine}>
+          Aloitus: {timeLabel(activeSession.started.atISO)}
+        </Text>
+        <Text style={styles.cardLine}>
+          Start: {activeSession.started.point.latitude.toFixed(5)},{" "}
+          {activeSession.started.point.longitude.toFixed(5)}
+        </Text>
+        {syncingStart && (
+          <Text style={styles.cardLine}>Tallennetaan Firestoreen…</Text>
+        )}
+      </View>
+    );
+  };
 
   const renderPast = ({ item }: { item: WorkSession }) => {
-  const startMs = new Date(item.started.atISO).getTime();
-  const endMs = item.ended ? new Date(item.ended.atISO).getTime() : startMs;
-  const duration = formatDuration(endMs - startMs);
+    const startMs = new Date(item.started.atISO).getTime();
+    const endMs = item.ended ? new Date(item.ended.atISO).getTime() : startMs;
+    const duration = formatDuration(endMs - startMs);
 
-  const day = dateLabel(item.started.atISO);
+    const day = dateLabel(item.started.atISO);
 
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{day}</Text>
-
-      <Text style={styles.cardLine}>
-        {timeLabel(item.started.atISO)} →{" "}
-        {item.ended ? timeLabel(item.ended.atISO) : "—"}
-      </Text>
-
-      <Text style={styles.cardLine}>Kesto: {duration}</Text>
-    </View>
-  );
-};
-
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{day}</Text>
+        <Text style={styles.cardLine}>
+          {timeLabel(item.started.atISO)} →{" "}
+          {item.ended ? timeLabel(item.ended.atISO) : "—"}
+        </Text>
+        <Text style={styles.cardLine}>Kesto: {duration}</Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -231,7 +352,9 @@ export default function WorkdayMapScreen() {
         <View style={styles.mapWrap}>
           <MapView style={styles.map} region={region}>
             {currentPoint && <Marker coordinate={currentPoint} title="Oma sijainti" />}
-            {activeSession?.started && <Marker coordinate={activeSession.started.point} title="Aloitus" />}
+            {activeSession?.started && (
+              <Marker coordinate={activeSession.started.point} title="Aloitus" />
+            )}
           </MapView>
         </View>
 
@@ -240,15 +363,27 @@ export default function WorkdayMapScreen() {
           <Pressable
             onPress={handleStart}
             disabled={!!activeSession}
-            style={[styles.button, { backgroundColor: colors.primary, opacity: activeSession ? 0.5 : 1 }]}
+            style={[
+              styles.button,
+              {
+                backgroundColor: colors.primary,
+                opacity: activeSession ? 0.5 : 1,
+              },
+            ]}
           >
             <Text style={styles.buttonText}>Aloita työpäivä</Text>
           </Pressable>
 
           <Pressable
             onPress={handleStopWithConfirm}
-            disabled={!activeSession}
-            style={[styles.button, { backgroundColor: colors.secondary, opacity: activeSession ? 1 : 0.5 }]}
+            disabled={!activeSession || syncingStart}
+            style={[
+              styles.button,
+              {
+                backgroundColor: colors.secondary,
+                opacity: !activeSession || syncingStart ? 0.5 : 1,
+              },
+            ]}
           >
             <Text style={styles.buttonText}>Lopeta</Text>
           </Pressable>
@@ -262,10 +397,7 @@ export default function WorkdayMapScreen() {
 
         {/* Menneet työvuorot napin takana */}
         <View style={styles.section}>
-          <Pressable
-            onPress={() => setShowPast((v) => !v)}
-            style={styles.toggle}
-          >
+          <Pressable onPress={() => setShowPast((v) => !v)} style={styles.toggle}>
             <Text style={styles.toggleText}>
               {showPast ? "Piilota menneet työvuorot" : "Näytä menneet työvuorot"}
             </Text>
@@ -277,7 +409,9 @@ export default function WorkdayMapScreen() {
               data={pastSessions}
               keyExtractor={(item) => item.id}
               renderItem={renderPast}
-              ListEmptyComponent={<Text style={styles.muted}>Ei vielä menneitä työvuoroja.</Text>}
+              ListEmptyComponent={
+                <Text style={styles.muted}>Ei vielä menneitä työvuoroja.</Text>
+              }
             />
           )}
         </View>
@@ -290,15 +424,31 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, padding: 12, backgroundColor: colors.background },
 
-  mapWrap: { height: 160, borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: colors.specialColor },
+  mapWrap: {
+    height: 160,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.specialColor,
+  },
   map: { flex: 1 },
 
   buttonRow: { flexDirection: "row", gap: 10, marginTop: 12 },
-  button: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
   buttonText: { color: colors.text, fontWeight: "800" },
 
   section: { marginTop: 14 },
-  sectionTitle: { fontSize: 16, fontWeight: "900", color: colors.text, marginBottom: 8 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: colors.text,
+    marginBottom: 8,
+  },
 
   muted: { color: colors.mutedText },
 
