@@ -40,30 +40,32 @@ export default function DrawerNavigator() {
 
       {/* CUSTOMER */}
       {role === 'customer' && (
-      <>
-      <Drawer.Screen
+        <Drawer.Screen
           name="Vikailmoitus"
           component={ServiceRequestForm}
         />
+      )}
+      {role === 'customer' && (
         <Drawer.Screen name="Kuva" component={PhotoScreen} />
-     </> )}
+      )} 
 
       {/* WORKER */}
       {role === 'worker' && (
-       <> <Drawer.Screen
+        <Drawer.Screen
           name="Työajanseuranta"
           component={TimeTrackingScreen}
         />
-         <Drawer.Screen name="Kuva" component={PhotoScreen} />
-        </>
       )}
+      {role === 'worker' && (
+        <Drawer.Screen name="Kuva" component={PhotoScreen} />
+      )} 
 
       {/* ADMIN */}
       {role === 'admin' && (
-        <>
-          <Drawer.Screen name="AdminScreen" component={AdminScreen} />
-          <Drawer.Screen name="ThirdScreen" component={ThirdScreen} />
-        </>
+        <Drawer.Screen name="AdminScreen" component={AdminScreen} />
+      )}
+      {role === 'admin' && (
+        <Drawer.Screen name="ThirdScreen" component={ThirdScreen} />
       )}
     </Drawer.Navigator>
   )
