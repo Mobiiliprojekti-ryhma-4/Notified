@@ -1,5 +1,5 @@
 
-// components/DrawerNavigator.tsx
+// navigation/DrawerNavigator.tsx
 
 import { createDrawerNavigator } from '@react-navigation/drawer'
 import { useAuth } from '../context/AuthContext'
@@ -14,6 +14,8 @@ import PhotoScreen from '../screens/PhotoScreen'
 import { View, ActivityIndicator } from 'react-native'
 import CustomDrawer from '../components/CustomDrawer'
 import AdminScreen from '../screens/AdminScreen'
+import UserListScreen from '../screens/UserListScreen'
+import ServiceRequestAdminScreen from '../screens/ServiceRequestsAdminScreen'
 
 const Drawer = createDrawerNavigator()
 
@@ -56,17 +58,20 @@ export default function DrawerNavigator() {
           component={TimeTrackingScreen}
         />
       )}
-      {role === 'worker' && (
-        <Drawer.Screen name="Kuva" component={PhotoScreen} />
-      )} 
+     
 
       {/* ADMIN */}
       {role === 'admin' && (
+        <>
         <Drawer.Screen name="AdminScreen" component={AdminScreen} />
-      )}
-      {role === 'admin' && (
-        <Drawer.Screen name="ThirdScreen" component={ThirdScreen} />
-      )}
+    <Drawer.Screen name="UserList" component={UserListScreen} />
+    <Drawer.Screen
+      name="AdminServiceRequests"
+      component={ServiceRequestAdminScreen}
+    />
+     </> 
+    )}
+      
     </Drawer.Navigator>
   )
 }

@@ -1,10 +1,25 @@
+//AdminScreen.tsx
 import { View, Text, Button, StyleSheet } from 'react-native'
 import colors from '../theme/colors'
 export default function AdminScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Admin Paneeli:</Text>
-     
+     <View style={styles.section}>
+        <Button
+          title="Hallitse käyttäjiä"
+          onPress={() => navigation.navigate('UserList')}
+          color={colors.primary}
+        />
+      </View>
+    
+    <View style={styles.section}>
+        <Button
+          title="Hallitse ilmoituksia"
+          onPress={() => navigation.navigate('AdminServiceRequests')}
+          color={colors.primary}
+        />
+    </View>
     </View>
   )
 }
@@ -27,5 +42,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 20,
   },
-
+section: {
+    marginBottom: 20,
+  },
 })
