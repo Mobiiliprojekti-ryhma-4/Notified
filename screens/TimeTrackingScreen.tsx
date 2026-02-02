@@ -20,7 +20,7 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-} from "firebase/firestore/lite";
+} from "firebase/firestore";
 
 import { auth, db } from "../firebase/Config";
 
