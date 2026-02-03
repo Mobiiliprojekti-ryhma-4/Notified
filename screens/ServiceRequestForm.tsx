@@ -19,7 +19,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import * as ImagePicker from "expo-image-picker"
 
 import { db, auth } from "../firebase/Config"
-import { storage } from "../src/firebase"
+import { storage } from "../firebase/Config"
 import colors from "../theme/colors"
 
 type ServiceRequestStatus = "new" | "in_progress" | "done"

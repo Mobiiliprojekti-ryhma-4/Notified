@@ -19,10 +19,7 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text>HomeScreen</Text>
-       <Button
-        title="Open menu"
-        onPress={() => navigation.openDrawer()}
-      /> 
+      
      <Button
           title="Logout"
           color="#ff3b30"

@@ -41,7 +41,7 @@ export default function ProfileScreen({ navigation }: Props) {
       <Text style={styles.text}>Sähköposti: {user.email}</Text>
       <Text style={styles.text}>Käyttäjän id: {user.uid}</Text>
       <View style={styles.button}>
-      <Button title="Avaa valikko"color={colors.primary} onPress={() => navigation.openDrawer()} />
+     
     </View>
     </View>
   )
