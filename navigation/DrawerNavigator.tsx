@@ -32,11 +32,11 @@ export default function DrawerNavigator() {
 
   return (
     <Drawer.Navigator
-      initialRouteName="HomeScreen"
+      initialRouteName="Koti"
       drawerContent={(props) => <CustomDrawer {...props} />}
     >
       {/* Kaikille käyttäjille */}
-      <Drawer.Screen name="HomeScreen" component={HomeScreen} />
+      <Drawer.Screen name="Koti" component={HomeScreen} />
       <Drawer.Screen name="Asetukset" component={ProfileScreen} />
      
 
@@ -63,10 +63,10 @@ export default function DrawerNavigator() {
       {/* ADMIN */}
       {role === 'admin' && (
         <>
-        <Drawer.Screen name="AdminScreen" component={AdminScreen} />
-    <Drawer.Screen name="UserList" component={UserListScreen} />
+        <Drawer.Screen name="Admin paneeli" component={AdminScreen} />
+    <Drawer.Screen name="Käyttäjälista" component={UserListScreen} />
     <Drawer.Screen
-      name="AdminServiceRequests"
+      name="AdminPalveluPyynnöt"
       component={ServiceRequestAdminScreen}
     />
      </> 

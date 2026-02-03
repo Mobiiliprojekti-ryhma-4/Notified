@@ -18,13 +18,9 @@ export default function HomeScreen({ navigation }: Props) {
   
   return (
     <View style={styles.container}>
-      <Text>HomeScreen</Text>
+      <Text>Koti</Text>
       
-     <Button
-          title="Logout"
-          color="#ff3b30"
-          onPress={handleLogout}
-        />
+     
     </View>
   )
 }
