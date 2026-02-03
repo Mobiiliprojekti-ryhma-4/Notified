@@ -27,7 +27,7 @@ export default function LoginScreen() {
         await login(email, password)
       }
 
-      // tärkeä: poistaa Login back-stackista
+      
       navigation.replace('Home')
     } catch (error: any) {
       Alert.alert(
