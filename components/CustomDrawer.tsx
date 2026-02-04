@@ -1,4 +1,3 @@
-// components/CustomDrawer.tsx
 import React from 'react'
 import { Alert } from 'react-native'
 import { DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer'
@@ -17,7 +16,6 @@ export default function CustomDrawer(props: any) {
   const handleLogout = async () => {
     try {
       await logout()
-      // reset stack so user cannot go back
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -25,7 +23,7 @@ export default function CustomDrawer(props: any) {
         })
       )
     } catch (e: any) {
-      Alert.alert('Logout failed', e.message)
+      Alert.alert('Uloskirjautuminen epäonnistui', e.message)
     }
   }
 
@@ -54,7 +52,7 @@ export default function CustomDrawer(props: any) {
       <DrawerItem
         label="Kirjaudu ulos"
         onPress={handleLogout}
-        labelStyle={{ color: 'red', fontWeight: 'bold' }}
+        labelStyle={{ color: '#ff3b30', fontWeight: '700' }}
       />
     </DrawerContentScrollView>
   

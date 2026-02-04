@@ -1,45 +1,53 @@
-import { View, Text, Button,TextInput, StyleSheet, Alert } from 'react-native'
-import React from 'react'
+import { View, Text, Button, TextInput, StyleSheet, Alert } from 'react-native'
+import React, { useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import { login, register } from '../services/authService'
-import { useState } from 'react'
+import colors from '../theme/colors'
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>()
-  
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [isRegister, setIsRegister] = useState(false)
 
-  const handleLogin = async () => {
+  const handleSubmit = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill all fields')
+      Alert.alert('Virhe', 'Täytä kaikki kentät')
       return
     }
 
-     try {
+    try {
       setLoading(true)
+
       if (isRegister) {
         await register(email, password)
-      }else{
-      await login(email, password)
+      } else {
+        await login(email, password)
       }
-      navigation.navigate('Home')
+
+      
+      navigation.replace('Home')
     } catch (error: any) {
-      Alert.alert(isRegister ? 'Registration failed' : 'Login failed',
-         error.message)
+      Alert.alert(
+        isRegister ? 'Rekisteröinti epäonnistui' : 'Kirjautuminen epäonnistui',
+        error.message
+      )
     } finally {
       setLoading(false)
     }
   }
-  
+
   return (
     <View style={styles.container}>
-      
-      <Text>LoginScreen</Text>
-         <TextInput
-        placeholder="Email"
+      <Text style={styles.title}>
+        {isRegister ? 'Luo käyttäjätili' : 'Kirjaudu sisään'}
+      </Text>
+
+      <TextInput
+        placeholder="Sähköposti"
+        placeholderTextColor={colors.mutedText}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -47,45 +55,68 @@ export default function LoginScreen() {
       />
 
       <TextInput
-        placeholder="Password"
+        placeholder="Salasana"
+        placeholderTextColor={colors.mutedText}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
         style={styles.input}
       />
-       
-       
-        <Button  
-        title={loading ? 'Logging in...' : 'Login'}
-        onPress={handleLogin}
-        disabled={loading}
+
+      <View style={styles.buttonWrap}>
+        <Button
+          title={
+            loading
+              ? 'Käsitellään...'
+              : isRegister
+                ? 'Rekisteröidy'
+                : 'Kirjaudu'
+          }
+          onPress={handleSubmit}
+          disabled={loading}
+          color={colors.primary}
         />
-  <Button
-  title={
-    isRegister
-      ? 'Already have an account? Login'
-      : "Don't have an account? Sign up"
-  }
-  onPress={() => setIsRegister(!isRegister)}
-/>
-        </View>
+      </View>
+
+      <View style={styles.buttonWrap}>
+        <Button
+          title={isRegister ? 'Minulla on jo tili – kirjaudu' : 'Ei tiliä? Rekisteröidy'}
+          onPress={() => setIsRegister(!isRegister)}
+          color={colors.secondary}
+        />
+      </View>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-  marginBottom:300
+    padding: 20,
   },
-  text: {
+  title: {
+    color: colors.text,
     fontSize: 24,
     marginBottom: 20,
+    fontWeight: '700',
   },
   input: {
-    fontSize: 24,
-    marginBottom: 20,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: colors.specialColor,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    color: colors.text,
+    fontSize: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 12,
   },
-
+  buttonWrap: {
+    width: '100%',
+    marginTop: 8,
+  },
 })
