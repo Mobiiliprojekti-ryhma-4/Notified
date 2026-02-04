@@ -59,7 +59,7 @@ export default function DrawerNavigator() {
     >
       {/* Kaikille käyttäjille */}
       <Drawer.Screen
-        name="HomeScreen"
+        name="Koti"
         component={HomeScreen}
         options={{ title: 'Etusivu', drawerLabel: 'Etusivu' }}
       />
