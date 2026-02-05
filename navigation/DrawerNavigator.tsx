@@ -38,7 +38,7 @@ export default function DrawerNavigator() {
 
   return (
     <Drawer.Navigator
-      initialRouteName="HomeScreen"
+      initialRouteName="Koti"
       drawerContent={(props) => <CustomDrawer {...props} />}
       screenOptions={{
         // Header (yläpalkki)
@@ -59,7 +59,7 @@ export default function DrawerNavigator() {
     >
       {/* Kaikille käyttäjille */}
       <Drawer.Screen
-        name="HomeScreen"
+        name="Koti"
         component={HomeScreen}
         options={{ title: 'Etusivu', drawerLabel: 'Etusivu' }}
       />
