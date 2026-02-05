@@ -15,6 +15,7 @@ import PhotoScreen from '../screens/PhotoScreen'
 import AdminScreen from '../screens/AdminScreen'
 import UserListScreen from '../screens/UserListScreen'
 import ServiceRequestAdminScreen from '../screens/ServiceRequestsAdminScreen'
+import MyServicerequestScreen from '../screens/MyServicerequestScreen'
 
 const Drawer = createDrawerNavigator()
 
@@ -76,6 +77,13 @@ export default function DrawerNavigator() {
           name="Vikailmoitus"
           component={ServiceRequestForm}
           options={{ title: 'Vikailmoitus', drawerLabel: 'Vikailmoitus' }}
+        />
+      )}
+      {role === 'customer' && (
+        <Drawer.Screen
+          name="Omat vikailmoitukset"
+          component={MyServicerequestScreen}
+          options={{ title: 'Omat vikailmoitukset', drawerLabel: 'Omat vikailmoitukset' }}
         />
       )}
       {role === 'customer' && (

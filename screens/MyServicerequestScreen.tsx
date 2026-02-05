@@ -1,17 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, View,} from "react-native";
-import { collection, onSnapshot, orderBy, query, Timestamp,} from "firebase/firestore";
-import { db } from "../firebase/Config";
+import {ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, View,} from "react-native";
+import {collection, onSnapshot, orderBy, query,Timestamp,where,} from "firebase/firestore";
+import { auth, db } from "../firebase/Config";
 import colors from "../theme/colors";
-import { useAuth } from "../context/AuthContext";
 
 type ServiceRequestStatus = "new" | "in_progress" | "done";
 
-
 type ServiceRequestDoc = {
   id: string;
-  userId: string;
-  userEmail?: string | null;
   address: string;
   issueDescription: string;
   status: ServiceRequestStatus;
@@ -37,20 +33,22 @@ function timeFi(ts?: Timestamp) {
   });
 }
 
-export default function ServiceRequestsAdminScreen() {
-  const { role } = useAuth();
+export default function MyServiceRequestsScreen() {
   const [items, setItems] = useState<ServiceRequestDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const uid = auth.currentUser?.uid;
+
   useEffect(() => {
-    if (role !== "admin") {
+    if (!uid) {
       setLoading(false);
-      Alert.alert("Ei oikeuksia", "Tämä näkymä on vain ylläpidolle.");
+      Alert.alert("Kirjaudu sisään", "Et ole kirjautunut sisään.");
       return;
     }
 
     const q = query(
       collection(db, "serviceRequests"),
+      where("userId", "==", uid),
       orderBy("createdAt", "desc")
     );
 
@@ -64,15 +62,14 @@ export default function ServiceRequestsAdminScreen() {
         setItems(rows);
         setLoading(false);
       },
-      (e) => {
-        console.log(e);
+      () => {
         setLoading(false);
         Alert.alert("Virhe", "Vikailmoitusten haku epäonnistui.");
       }
     );
 
     return unsub;
-  }, [role]);
+  }, [uid]);
 
   const renderItem = ({ item }: { item: ServiceRequestDoc }) => (
     <View style={styles.card}>
@@ -80,10 +77,6 @@ export default function ServiceRequestsAdminScreen() {
         <Text style={styles.cardTitle}>{statusFi(item.status)}</Text>
         <Text style={styles.meta}>{timeFi(item.createdAt)}</Text>
       </View>
-
-      <Text style={styles.line}>
-        <Text style={styles.bold}>Asiakas:</Text> {item.userEmail ?? item.userId}
-      </Text>
 
       <Text style={styles.line}>
         <Text style={styles.bold}>Osoite:</Text> {item.address}
@@ -94,9 +87,17 @@ export default function ServiceRequestsAdminScreen() {
       </Text>
 
       {!!item.imageUrls?.length && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.thumbRow}
+        >
           {item.imageUrls.map((url, idx) => (
-            <Image key={`${item.id}-${idx}`} source={{ uri: url }} style={styles.thumb} />
+            <Image
+              key={`${item.id}-${idx}`}
+              source={{ uri: url }}
+              style={styles.thumb}
+            />
           ))}
         </ScrollView>
       )}
@@ -112,9 +113,18 @@ export default function ServiceRequestsAdminScreen() {
     );
   }
 
+  if (!items.length) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.meta}>Sinulla ei ole vielä vikailmoituksia.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Kaikki vikailmoitukset</Text>
+      <Text style={styles.title}>Omat vikailmoitukset</Text>
+
       <FlatList
         data={items}
         keyExtractor={(it) => it.id}
@@ -129,23 +139,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, padding: 12 },
   title: { fontSize: 18, fontWeight: "900", color: colors.text, marginBottom: 10 },
 
-  center: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 16,
-  },
+  center: { flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", gap: 10, padding: 16 },
 
-  card: {
-    borderWidth: 1,
-    borderColor: colors.specialColor,
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: "rgba(255,255,255,0.55)",
-  },
+  card: { borderWidth: 1, borderColor: colors.specialColor, borderRadius: 12, padding: 10, marginBottom: 10, backgroundColor: "rgba(255,255,255,0.55)" },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
   cardTitle: { fontWeight: "900", color: colors.text },
 
