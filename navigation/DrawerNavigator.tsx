@@ -16,6 +16,7 @@ import AdminScreen from '../screens/AdminScreen'
 import UserListScreen from '../screens/UserListScreen'
 import ServiceRequestAdminScreen from '../screens/ServiceRequestsAdminScreen'
 import MyServicerequestScreen from '../screens/MyServicerequestScreen'
+import AdminTimeTrackingScreen from '../screens/AdminTimeTrackingScreen'
 
 const Drawer = createDrawerNavigator()
 
@@ -115,6 +116,11 @@ export default function DrawerNavigator() {
             name="UserList"
             component={UserListScreen}
             options={{ title: 'Käyttäjät', drawerLabel: 'Käyttäjät' }}
+          />
+          <Drawer.Screen
+            name="AdminTimeTrackingScreen"
+            component={AdminTimeTrackingScreen}
+            options={{ title: 'Työajanseuranta', drawerLabel: 'Työajanseuranta' }}
           />
           <Drawer.Screen
             name="AdminServiceRequests"
