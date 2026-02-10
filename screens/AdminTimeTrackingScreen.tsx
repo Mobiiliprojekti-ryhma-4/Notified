@@ -114,7 +114,7 @@ export default function AdminTimeTrackingScreen() {
     }
   }, [role]);
 
-  // Hae workerit
+  // Haetaan työntekijät
   useEffect(() => {
     if (role !== "admin") return;
 
@@ -140,7 +140,7 @@ export default function AdminTimeTrackingScreen() {
     return unsub;
   }, [role]);
 
-  // Hae valitun workerin sessiot (7/30/kaikki)
+  // Haetaan valitun työtekijän tunnit
   useEffect(() => {
     if (role !== "admin") return;
 
@@ -260,7 +260,7 @@ export default function AdminTimeTrackingScreen() {
     );
   }
 
-  // 1) Worker-lista
+  
   if (!selectedWorker) {
     if (loadingWorkers) {
       return (
@@ -286,8 +286,7 @@ export default function AdminTimeTrackingScreen() {
       </View>
     );
   }
-
-  // 2) Valitun workerin kuukausierittely
+// valitun työntekijän näkymä
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
