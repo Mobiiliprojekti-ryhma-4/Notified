@@ -4,13 +4,24 @@ import { useNavigation } from '@react-navigation/native'
 import { login, register } from '../services/authService'
 import colors from '../theme/colors'
 
+import { useGoogleAuth } from '../services/googleAuth'
+
+
+
+
+
+
 export default function LoginScreen() {
   const navigation = useNavigation<any>()
+ 
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [isRegister, setIsRegister] = useState(false)
+  const { signInWithGoogle, isReady: googleReady, loading: googleLoading } = useGoogleAuth()
+
+
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -38,6 +49,19 @@ export default function LoginScreen() {
       setLoading(false)
     }
   }
+
+ // Google login
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      await signInWithGoogle();
+      navigation.replace("Home");
+    } catch (err: any) {
+      Alert.alert("Google kirjautuminen epäonnistui", err?.message ?? String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -75,6 +99,17 @@ export default function LoginScreen() {
           onPress={handleSubmit}
           disabled={loading}
           color={colors.primary}
+        />
+
+     
+      </View>
+
+      <View style={styles.buttonWrap}>
+        <Button
+          title={loading || googleLoading ? 'Käsitellään...' : 'Kirjaudu Googlella'}
+          onPress={handleGoogleSignIn}
+          disabled={!googleReady || loading || googleLoading}
+          color={colors.secondary}
         />
       </View>
 

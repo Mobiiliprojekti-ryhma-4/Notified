@@ -29,3 +29,12 @@ npx expo install @react-native-async-storage/async-storage
 npx expo install expo-image-picker expo-location
 npx expo install expo-constants
 npx expo install react-native-maps expo-location
+
+Google login setup
+npx expo install expo-auth-session expo-web-browser
+
+expo install expo-auth-session expo-crypto
+
+for google login google cloud is required and a google cloud OAuth API service with existing client.
+
+npx expo install expo-auth-session

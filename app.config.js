@@ -2,6 +2,11 @@ require("dotenv").config();
 
 module.exports = ({ config }) => ({
   ...config,
+  plugins: [
+    ...(config.plugins ?? []),
+    'expo-web-browser',
+  ],
+  
   extra: {
     ...(config.extra || {}),
     firebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,

@@ -1,6 +1,6 @@
 //firebase/Config.ts
 import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth,  GoogleAuthProvider} from 'firebase/auth' // google auth added
 import { getFirestore } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
 
@@ -12,18 +12,21 @@ const firebaseConfig = {
   projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_APPID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
  
 const app = initializeApp(firebaseConfig)
 const auth = getAuth(app)
 const storage = getStorage(app)
 const db = getFirestore(app)
+const provider = new GoogleAuthProvider();
 
 export { 
     auth,
     db,
-   storage
-}
+   storage,
+   provider
+
+  }
 
 
