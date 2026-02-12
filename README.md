@@ -36,5 +36,10 @@ npx expo install expo-auth-session expo-web-browser
 expo install expo-auth-session expo-crypto
 
 for google login google cloud is required and a google cloud OAuth API service with existing client.
+for android client it is required to have SHA1 
+it can be found from project folder with folowing commands
+cd android
+./gradlew signingReport
 
 npx expo install expo-auth-session
+npx expo install expo-system-ui

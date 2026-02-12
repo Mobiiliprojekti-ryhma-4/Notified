@@ -4,10 +4,13 @@ import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { auth } from "../firebase/Config";
+import { initializeGoogleUser } from "./authService";
 import { useEffect, useState, useRef } from "react";
 import { Platform } from "react-native";
-
+import * as AuthSession from "expo-auth-session";
 WebBrowser.maybeCompleteAuthSession();
+
+const redirectUri = AuthSession.makeRedirectUri();
 
 export function useGoogleAuth() {
   const [loading, setLoading] = useState(false);
@@ -20,8 +23,9 @@ export function useGoogleAuth() {
       androidClientId: process.env.EXPO_PUBLIC_ANDROID_CLIENT_ID,
       //iosClientId: process.env.EXPO_PUBLIC_IOS_CLIENT_ID,
        webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID, 
-    });
-
+       redirectUri,
+      });
+console.log(redirectUri);
   //  Web-only: modern Google Identity API
   const signInWithGoogleWeb = async () => {
     return new Promise<void>((resolve, reject) => {
@@ -41,7 +45,15 @@ export function useGoogleAuth() {
           }
           try {
             const credential = GoogleAuthProvider.credential(response.credential);
-            await signInWithCredential(auth, credential);
+            const userCredential = await signInWithCredential(auth, credential);
+            
+            // Initialize user in Firestore
+            await initializeGoogleUser(
+              userCredential.user.uid,
+              userCredential.user.email || "",
+              userCredential.user.displayName || undefined
+            );
+            
             console.log("Firebase login success (Web)");
             resolve();
           } catch (err) {
@@ -77,7 +89,13 @@ export function useGoogleAuth() {
       setLoading(true);
 
       signInWithCredential(auth, credential)
-        .then(() => {
+        .then(async (userCredential) => {
+          // Initialize user in Firestore
+          await initializeGoogleUser(
+            userCredential.user.uid,
+            userCredential.user.email || "",
+            userCredential.user.displayName || undefined
+          );
           console.log("Firebase login success (Android/iOS)");
           pendingRef.current?.resolve();
         })
