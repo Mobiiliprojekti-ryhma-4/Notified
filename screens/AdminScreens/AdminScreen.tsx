@@ -1,6 +1,6 @@
 //AdminScreen.tsx
 import { View, Text, Button, StyleSheet } from 'react-native'
-import colors from '../theme/colors'
+import colors from '../../theme/colors'
 export default function AdminScreen({ navigation }) {
   return (
     <View style={styles.container}>

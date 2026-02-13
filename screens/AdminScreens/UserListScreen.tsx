@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native'
 import React from 'react'
-import colors from "../theme/colors"; 
+import colors from "../../theme/colors"; 
 export default function UserListScreen() {
   return (
     <View style={styles.container}>

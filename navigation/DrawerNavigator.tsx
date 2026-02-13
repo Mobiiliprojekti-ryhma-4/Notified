@@ -9,15 +9,16 @@ import CustomDrawer from '../components/CustomDrawer'
 
 import HomeScreen from '../screens/HomeScreen'
 import ProfileScreen from '../screens/ProfileScreen'
-import ServiceRequestForm from '../screens/ServiceRequestForm'
-import TimeTrackingScreen from '../screens/TimeTrackingScreen'
+import ServiceRequestForm from '../screens/UserScreens/ServiceRequestForm'
+import TimeTrackingScreen from '../screens/WorkerScreens/TimeTrackingScreen'
 import PhotoScreen from '../screens/PhotoScreen'
-import AdminScreen from '../screens/AdminScreen'
-import UserListScreen from '../screens/UserListScreen'
-import ServiceRequestAdminScreen from '../screens/ServiceRequestsAdminScreen'
-import MyServicerequestScreen from '../screens/MyServicerequestScreen'
-import AdminTimeTrackingScreen from '../screens/AdminTimeTrackingScreen'
-import AnalyticsScreen from '../screens/AnalyticsScreen'
+import AdminScreen from '../screens/AdminScreens/AdminScreen'
+import UserListScreen from '../screens/AdminScreens/UserListScreen'
+import ServiceRequestAdminScreen from '../screens/AdminScreens/ServiceRequestsAdminScreen'
+import MyServicerequestScreen from '../screens/UserScreens/MyServicerequestScreen'
+import AdminTimeTrackingScreen from '../screens/AdminScreens/AdminTimeTrackingScreen'
+import AnalyticsScreen from '../screens/AdminScreens/AnalyticsScreen'
+import WorkerWorkList from '../screens/WorkerScreens/WorkerWorkList'
 
 
 const Drawer = createDrawerNavigator()
@@ -96,6 +97,15 @@ export default function DrawerNavigator() {
           name="Työajanseuranta"
           component={TimeTrackingScreen}
           options={{ title: 'Työajanseuranta', drawerLabel: 'Työajanseuranta' }}
+        />
+      )}
+
+       {/* WORKER */}
+      {role === 'worker' && (
+        <Drawer.Screen
+          name="Työjono"
+          component={WorkerWorkList}
+          options={{ title: 'Työjono', drawerLabel: 'Työjono' }}
         />
       )}
 
