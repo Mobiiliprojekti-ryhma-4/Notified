@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, SectionList, StyleSheet, Text, View,} from "react-native";
 import {collection, onSnapshot, orderBy, query, Timestamp, where,} from "firebase/firestore";
 
-import { db } from "../firebase/Config";
-import colors from "../theme/colors";
-import { useAuth } from "../context/AuthContext";
+import { db } from "../../firebase/Config";
+import colors from "../../theme/colors";
+import { useAuth } from "../../context/AuthContext";
 
 type WorkerUser = {
   id: string;

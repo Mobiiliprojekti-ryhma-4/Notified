@@ -1,26 +1,11 @@
 import React, { useMemo, useState } from "react"
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  Image,
-  Pressable,
-} from "react-native"
-
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image, Pressable,} from "react-native"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import * as ImagePicker from "expo-image-picker"
-
-import { db, auth } from "../firebase/Config"
-import { storage } from "../firebase/Config"
-import colors from "../theme/colors"
+import { db, auth } from "../../firebase/Config"
+import { storage } from "../../firebase/Config"
+import colors from "../../theme/colors"
 
 type ServiceRequestStatus = "new" | "in_progress" | "done"
 type YesNo = "yes" | "no" | ""
@@ -40,6 +25,14 @@ type ServiceRequestCreate = {
   status: ServiceRequestStatus
   createdAt: ReturnType<typeof serverTimestamp>
   updatedAt: ReturnType<typeof serverTimestamp>
+
+  assignedTo: string | null
+  assignedToEmail: string | null
+  assignedAt: any | null
+
+  startedAt: any | null
+  finishedAt: any | null
+  workerComment: string | null
 }
 
 type FieldProps = {
@@ -111,7 +104,7 @@ export default function ServiceRequestForm() {
 
   const [submitting, setSubmitting] = useState(false)
 
-  // Kuvien hallinta
+ 
   const [imageUris, setImageUris] = useState<string[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
 
@@ -234,6 +227,14 @@ export default function ServiceRequestForm() {
         status: "new",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+
+        assignedTo: null,
+        assignedToEmail: null,
+        assignedAt: null,
+
+        startedAt: null,
+        finishedAt: null,
+        workerComment: null,
       }
 
       await addDoc(collection(db, "serviceRequests"), payload)
@@ -423,7 +424,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
 
-  // Kyllä / Ei valinnat
+  
   toggleRow: {
     flexDirection: "row",
     gap: 10,

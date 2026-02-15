@@ -1,18 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react"
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Dimensions,
-} from "react-native"
+import {View,Text, StyleSheet, ActivityIndicator, Pressable, ScrollView, Dimensions,} from "react-native"
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
 import { PieChart, LineChart } from "react-native-chart-kit"
-
-import { db } from "../firebase/Config"
-import colors from "../theme/colors"
+import { db } from "../../firebase/Config"
+import colors from "../../theme/colors"
 
 type YesNo = "Kyllä" | "Ei"
 

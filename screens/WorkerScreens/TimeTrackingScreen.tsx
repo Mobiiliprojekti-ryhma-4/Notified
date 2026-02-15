@@ -1,27 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  SafeAreaView,
-  Text,
-  View,
-} from "react-native";
+import { Alert, FlatList, Pressable, StyleSheet, SafeAreaView, Text, View,} from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import colors from "../theme/colors";
-
-import {
-  doc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-  Timestamp,
-  getDoc,
-} from "firebase/firestore";
-import { auth, db } from "../firebase/Config";
+import colors from "../../theme/colors";
+import { doc, setDoc, updateDoc, serverTimestamp, Timestamp, getDoc,} from "firebase/firestore";
+import { auth, db } from "../../firebase/Config";
 
 type GeoPoint = { latitude: number; longitude: number };
 
@@ -31,14 +15,14 @@ type Punch = {
   point: GeoPoint;
 };
 
-// Työpäivä (local-malli)
+
 type WorkSession = {
   id: string;
   started: Punch;
   ended?: Punch;
 };
 
-const STORAGE_PREFIX = "work_sessions_v1"; // tehdään tästä käyttäjäkohtainen avain
+const STORAGE_PREFIX = "work_sessions_v1"; 
 
 function makeStorageKey(uid: string) {
   return `${STORAGE_PREFIX}_${uid}`;
@@ -69,7 +53,7 @@ function timeLabel(iso: string) {
   });
 }
 
-// ----- AsyncStorage (käyttäjäkohtainen) -----
+
 async function loadSessionsFor(uid: string): Promise<WorkSession[]> {
   const raw = await AsyncStorage.getItem(makeStorageKey(uid));
   if (!raw) return [];
@@ -84,12 +68,12 @@ async function saveSessionsFor(uid: string, sessions: WorkSession[]) {
   await AsyncStorage.setItem(makeStorageKey(uid), JSON.stringify(sessions));
 }
 
-// ----- Firestore sync helpers -----
+
 function sessionDocRef(uid: string, sessionId: string) {
   return doc(db, "users", uid, "workSessions", sessionId);
 }
 
-// Tallennetaan Firestoreen: started/ended (Timestamp), pisteet, status, email, dayKey
+
 async function upsertSessionToFirestore(uid: string, email: string | null, s: WorkSession) {
   const ref = sessionDocRef(uid, s.id);
 
@@ -98,10 +82,10 @@ async function upsertSessionToFirestore(uid: string, email: string | null, s: Wo
 
   const dayKey = startedAtISO.slice(0, 10); // "YYYY-MM-DD"
 
-  // tarkista onko doc jo olemassa
+  
   const existing = await getDoc(ref);
 
-  // peruskentät
+  
   const base = {
     uid,
     email: email ?? null,
@@ -112,7 +96,7 @@ async function upsertSessionToFirestore(uid: string, email: string | null, s: Wo
     updatedAt: serverTimestamp(),
   };
 
-  // jos loppu olemassa
+  
   if (s.ended) {
     const endedAt = Timestamp.fromDate(new Date(s.ended.atISO));
     const endedAtISO = s.ended.atISO;
@@ -135,20 +119,18 @@ async function upsertSessionToFirestore(uid: string, email: string | null, s: Wo
         });
   }
 
-  // vain aloitus
+
   return existing.exists()
     ? updateDoc(ref, { ...base, status: "active" })
     : setDoc(ref, { ...base, createdAt: serverTimestamp(), status: "active" });
 }
 
-// Sync: pushaa local-sessiot Firestoreen (jos offline, epäonnistuu hiljaa ja jää localiin)
+
 async function syncAllToFirestore(uid: string, email: string | null, sessions: WorkSession[]) {
   for (const s of sessions) {
     try {
       await upsertSessionToFirestore(uid, email, s);
     } catch (e) {
-      // offline tms → ei kaadeta
-      // halutessa: console.log("sync failed", e);
     }
   }
 }
@@ -167,7 +149,6 @@ export default function WorkdayMapScreen() {
   const activeSession = useMemo(() => sessions.find((s) => !s.ended), [sessions]);
   const pastSessions = useMemo(() => sessions.filter((s) => !!s.ended), [sessions]);
 
-  // Lataa käyttäjäkohtaiset sessiot + tee sync Firestoreen (parhaalla yrityksellä)
   useEffect(() => {
     (async () => {
       if (!uid) {
@@ -186,7 +167,6 @@ export default function WorkdayMapScreen() {
       const stored = await loadSessionsFor(uid);
       setSessions(stored);
 
-      // yritä synkata Firestoreen (jos offline, jää localiin ja yrittää seuraavalla avauksella)
       await syncAllToFirestore(uid, email, stored);
 
       if (ok) {
@@ -236,11 +216,9 @@ export default function WorkdayMapScreen() {
     setSessions(next);
     await saveSessionsFor(uid, next);
 
-    // Firestore (jos offline, epäonnistuu → localissa silti)
     try {
       await upsertSessionToFirestore(uid, email, newSession);
     } catch {
-      // offline tms, ei haittaa
     }
   }
 
@@ -269,7 +247,7 @@ export default function WorkdayMapScreen() {
     try {
       await upsertSessionToFirestore(uid, email, endedSession);
     } catch {
-      // offline tms
+      
     }
   }
 

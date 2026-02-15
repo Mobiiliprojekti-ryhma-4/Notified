@@ -1,22 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, View,} from "react-native";
-import { collection, onSnapshot, orderBy, query, Timestamp,} from "firebase/firestore";
-import { db } from "../firebase/Config";
-import colors from "../theme/colors";
-import { useAuth } from "../context/AuthContext";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View,} from "react-native";
+import { collection, onSnapshot, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { auth, db } from "../../firebase/Config";
+import colors from "../../theme/colors";
 
 type ServiceRequestStatus = "new" | "in_progress" | "done";
 
-
 type ServiceRequestDoc = {
   id: string;
-  userId: string;
-  userEmail?: string | null;
   address: string;
   issueDescription: string;
   status: ServiceRequestStatus;
   createdAt?: Timestamp;
   imageUrls?: string[];
+  workerComment?: string | null;
 };
 
 function statusFi(status: ServiceRequestStatus) {
@@ -37,20 +34,25 @@ function timeFi(ts?: Timestamp) {
   });
 }
 
-export default function ServiceRequestsAdminScreen() {
-  const { role } = useAuth();
+export default function MyServiceRequestsScreen() {
   const [items, setItems] = useState<ServiceRequestDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
+  
+  const [showDone, setShowDone] = useState(false);
+
+  const uid = auth.currentUser?.uid;
+
   useEffect(() => {
-    if (role !== "admin") {
+    if (!uid) {
       setLoading(false);
-      Alert.alert("Ei oikeuksia", "Tämä näkymä on vain ylläpidolle.");
+      Alert.alert("Kirjaudu sisään", "Et ole kirjautunut sisään.");
       return;
     }
 
     const q = query(
       collection(db, "serviceRequests"),
+      where("userId", "==", uid),
       orderBy("createdAt", "desc")
     );
 
@@ -64,15 +66,19 @@ export default function ServiceRequestsAdminScreen() {
         setItems(rows);
         setLoading(false);
       },
-      (e) => {
-        console.log(e);
+      () => {
         setLoading(false);
         Alert.alert("Virhe", "Vikailmoitusten haku epäonnistui.");
       }
     );
 
     return unsub;
-  }, [role]);
+  }, [uid]);
+
+  
+  const visibleItems = useMemo(() => {
+    return items.filter((it) => (showDone ? it.status === "done" : it.status !== "done"));
+  }, [items, showDone]);
 
   const renderItem = ({ item }: { item: ServiceRequestDoc }) => (
     <View style={styles.card}>
@@ -82,10 +88,6 @@ export default function ServiceRequestsAdminScreen() {
       </View>
 
       <Text style={styles.line}>
-        <Text style={styles.bold}>Asiakas:</Text> {item.userEmail ?? item.userId}
-      </Text>
-
-      <Text style={styles.line}>
         <Text style={styles.bold}>Osoite:</Text> {item.address}
       </Text>
 
@@ -93,12 +95,19 @@ export default function ServiceRequestsAdminScreen() {
         <Text style={styles.bold}>Vika:</Text> {item.issueDescription}
       </Text>
 
+    
       {!!item.imageUrls?.length && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
           {item.imageUrls.map((url, idx) => (
             <Image key={`${item.id}-${idx}`} source={{ uri: url }} style={styles.thumb} />
           ))}
         </ScrollView>
+      )}
+
+      {!!item.workerComment && (
+        <Text style={styles.line}>
+          <Text style={styles.bold}>Tekijän kommentti:</Text> {item.workerComment}
+        </Text>
       )}
     </View>
   );
@@ -114,13 +123,52 @@ export default function ServiceRequestsAdminScreen() {
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Kaikki vikailmoitukset</Text>
-      <FlatList
-        data={items}
-        keyExtractor={(it) => it.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 24 }}
-      />
+      <Text style={styles.title}>Omat vikailmoitukset</Text>
+
+      {/* Toggle-napit */}
+      <View style={styles.filterRow}>
+        <Pressable
+          onPress={() => setShowDone(false)}
+          style={({ pressed }) => [
+            styles.filterBtn,
+            !showDone && styles.filterBtnActive,
+            pressed && styles.btnPressed,
+          ]}
+        >
+          <Text style={[styles.filterText, !showDone && styles.filterTextActive]}>
+            Aktiiviset
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setShowDone(true)}
+          style={({ pressed }) => [
+            styles.filterBtn,
+            showDone && styles.filterBtnActive,
+            pressed && styles.btnPressed,
+          ]}
+        >
+          <Text style={[styles.filterText, showDone && styles.filterTextActive]}>
+            Valmiit työt
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Tyhjätila suodatuksen mukaan */}
+      {visibleItems.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.meta}>
+            {showDone ? "Ei valmiita vikailmoituksia." : "Ei aktiivisia vikailmoituksia."}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={visibleItems}
+          keyExtractor={(it) => it.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingBottom: 24 }}
+        />
+      )}
     </View>
   );
 }
@@ -128,6 +176,23 @@ export default function ServiceRequestsAdminScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, padding: 12 },
   title: { fontSize: 18, fontWeight: "900", color: colors.text, marginBottom: 10 },
+
+  
+  filterRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  filterBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.12)",
+    backgroundColor: "#fff",
+    alignItems: "center",
+  },
+  filterBtnActive: { borderColor: colors.primary },
+  filterText: { fontWeight: "900", color: colors.text },
+  filterTextActive: { color: colors.primary },
+
+  btnPressed: { opacity: 0.9 },
 
   center: {
     flex: 1,
@@ -154,5 +219,11 @@ const styles = StyleSheet.create({
   meta: { color: colors.mutedText, marginTop: 6 },
 
   thumbRow: { flexDirection: "row", gap: 8, marginTop: 8 },
-  thumb: { width: 90, height: 70, borderRadius: 10, borderWidth: 1, borderColor: colors.specialColor },
+  thumb: {
+    width: 90,
+    height: 70,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.specialColor,
+  },
 });
