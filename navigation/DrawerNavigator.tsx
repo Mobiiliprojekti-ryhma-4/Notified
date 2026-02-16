@@ -12,7 +12,6 @@ import ProfileScreen from '../screens/ProfileScreen'
 import ServiceRequestForm from '../screens/UserScreens/ServiceRequestForm'
 import TimeTrackingScreen from '../screens/WorkerScreens/TimeTrackingScreen'
 import PhotoScreen from '../screens/PhotoScreen'
-import AdminScreen from '../screens/AdminScreens/AdminScreen'
 import UserListScreen from '../screens/AdminScreens/UserListScreen'
 import ServiceRequestAdminScreen from '../screens/AdminScreens/ServiceRequestsAdminScreen'
 import MyServicerequestScreen from '../screens/UserScreens/MyServicerequestScreen'
@@ -112,11 +111,7 @@ export default function DrawerNavigator() {
       {/* ADMIN */}
       {role === 'admin' && (
         <>
-          <Drawer.Screen
-            name="AdminScreen"
-            component={AdminScreen}
-            options={{ title: 'Ylläpito', drawerLabel: 'Ylläpito' }}
-          />
+          
           <Drawer.Screen
             name="UserList"
             component={UserListScreen}
