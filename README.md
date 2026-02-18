@@ -19,8 +19,9 @@ npm install @react-navigation/drawer
 npx expo install react-native-gesture-handler react-native-reanimated
 
 npm install react-native-gesture-handler react-native-reanimated
-
-
+ 
+For icons  
+npx expo install @expo/vector-icons
 
 
 Firebase setup
