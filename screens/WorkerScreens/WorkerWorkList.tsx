@@ -1,45 +1,46 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, View, Pressable, TextInput,} from "react-native";
-import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, Timestamp, updateDoc, where,} from "firebase/firestore";
-import { auth, db } from "../../firebase/Config";
-import colors from "../../theme/colors";
-import { useAuth } from "../../context/AuthContext";
+import React, { useEffect, useMemo, useState } from "react"
+import {
+  ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, View, Pressable, TextInput,} from "react-native"
+import {addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, Timestamp, updateDoc, where,} from "firebase/firestore"
+import { auth, db } from "../../firebase/Config"
+import colors from "../../theme/colors"
+import { useAuth } from "../../context/AuthContext"
 
-type ServiceRequestStatus = "new" | "in_progress" | "done";
+type ServiceRequestStatus = "new" | "in_progress" | "done"
 
 type ServiceRequestDoc = {
-  id: string;
+  id: string
 
-  userId: string;
-  userEmail?: string | null;
+  userId: string
+  userEmail?: string | null
 
-  address: string;
-  issueDescription: string;
+  address: string
+  issueDescription: string
 
-  status: ServiceRequestStatus;
-  createdAt?: Timestamp;
+  status: ServiceRequestStatus
+  createdAt?: Timestamp
 
-  imageUrls?: string[];
+  imageUrls?: string[]
 
- 
-  assignedTo?: string | null;
-  assignedToEmail?: string | null;
-  assignedAt?: Timestamp | null;
+  assignedTo?: string | null
+  assignedToEmail?: string | null
+  assignedAt?: Timestamp | null
 
- 
-  startedAt?: Timestamp | null;
-  finishedAt?: Timestamp | null;
-  workerComment?: string | null;
-};
+  startedAt?: Timestamp | null
+  finishedAt?: Timestamp | null
+  workerComment?: string | null
+
+  activeWorkSessionId?: string | null
+}
 
 function statusFi(status: ServiceRequestStatus) {
-  if (status === "new") return "Uusi";
-  if (status === "in_progress") return "Työn alla";
-  return "Valmis";
+  if (status === "new") return "Uusi"
+  if (status === "in_progress") return "Työn alla"
+  return "Valmis"
 }
 
 function timeFi(ts?: Timestamp | null) {
-  if (!ts) return "";
+  if (!ts) return ""
   return ts.toDate().toLocaleString("fi-FI", {
     timeZone: "Europe/Helsinki",
     year: "numeric",
@@ -47,37 +48,37 @@ function timeFi(ts?: Timestamp | null) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  })
 }
 
 export default function WorkerWorkList() {
-  const { role } = useAuth();
-  const [items, setItems] = useState<ServiceRequestDoc[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showDone, setShowDone] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [commentById, setCommentById] = useState<Record<string, string>>({});
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const { role } = useAuth()
+  const [items, setItems] = useState<ServiceRequestDoc[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showDone, setShowDone] = useState(false)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [commentById, setCommentById] = useState<Record<string, string>>({})
+  const [savingId, setSavingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (role !== "worker") {
-      setLoading(false);
-      Alert.alert("Ei oikeuksia", "Tämä näkymä on vain työntekijöille.");
-      return;
+      setLoading(false)
+      Alert.alert("Ei oikeuksia", "Tämä näkymä on vain työntekijöille.")
+      return
     }
 
-    const user = auth.currentUser;
+    const user = auth.currentUser
     if (!user) {
-      setLoading(false);
-      Alert.alert("Kirjautuminen puuttuu", "Kirjaudu sisään nähdäksesi työlistan.");
-      return;
+      setLoading(false)
+      Alert.alert("Kirjautuminen puuttuu", "Kirjaudu sisään nähdäksesi työlistan.")
+      return
     }
 
     const q = query(
       collection(db, "serviceRequests"),
       where("assignedTo", "==", user.uid),
       orderBy("createdAt", "desc")
-    );
+    )
 
     const unsub = onSnapshot(
       q,
@@ -85,82 +86,99 @@ export default function WorkerWorkList() {
         const rows: ServiceRequestDoc[] = snap.docs.map((d) => ({
           id: d.id,
           ...(d.data() as Omit<ServiceRequestDoc, "id">),
-        }));
+        }))
 
-        setItems(rows);
+        setItems(rows)
 
         setCommentById((prev) => {
-          const next = { ...prev };
+          const next = { ...prev }
           for (const r of rows) {
             if (next[r.id] === undefined) {
-              next[r.id] = r.workerComment ?? "";
+              next[r.id] = r.workerComment ?? ""
             }
           }
-          return next;
-        });
+          return next
+        })
 
-        setLoading(false);
+        setLoading(false)
       },
       (e: any) => {
-        console.log(e);
-        setLoading(false);
+        console.log(e)
+        setLoading(false)
         if (items.length === 0) {
-          Alert.alert("Virhe", "Työlistan haku epäonnistui.");
+          Alert.alert("Virhe", "Työlistan haku epäonnistui.")
         }
       }
-    );
+    )
 
-    return unsub;
-   
-  }, [role]);
+    return unsub
+
+  }, [role])
 
   const visibleItems = useMemo(() => {
-    return items.filter((it) => (showDone ? it.status === "done" : it.status !== "done"));
-  }, [items, showDone]);
+    return items.filter((it) => (showDone ? it.status === "done" : it.status !== "done"))
+  }, [items, showDone])
 
   const toggleOpen = (id: string) => {
-    setOpenId((cur) => (cur === id ? null : id));
-  };
+    setOpenId((cur) => (cur === id ? null : id))
+  }
 
   const setComment = (id: string, text: string) => {
-    setCommentById((prev) => ({ ...prev, [id]: text }));
-  };
+    setCommentById((prev) => ({ ...prev, [id]: text }))
+  }
 
   const startWork = async (item: ServiceRequestDoc) => {
-    setSavingId(item.id);
+    const user = auth.currentUser
+    if (!user) {
+      Alert.alert("Kirjautuminen puuttuu", "Kirjaudu sisään.")
+      return
+    }
+
+    setSavingId(item.id)
     try {
+
+      const sessionRef = await addDoc(collection(db, "workSessions"), {
+        serviceRequestId: item.id,
+        workerId: user.uid,
+        workerEmail: user.email ?? null,
+        startedAt: serverTimestamp(),
+        endedAt: null,
+        minutes: null,
+      })
+
       await updateDoc(doc(db, "serviceRequests", item.id), {
         status: "in_progress",
         startedAt: serverTimestamp(),
+        activeWorkSessionId: sessionRef.id,
         updatedAt: serverTimestamp(),
-      });
+      })
     } catch (e: any) {
-      console.log(e);
-      Alert.alert("Virhe", e?.message ?? "Aloitus epäonnistui.");
+      console.log(e)
+      Alert.alert("Virhe", e?.message ?? "Aloitus epäonnistui.")
     } finally {
-      setSavingId(null);
+      setSavingId(null)
     }
-  };
+  }
 
   const saveComment = async (item: ServiceRequestDoc) => {
-    const text = (commentById[item.id] ?? "").trim();
-    setSavingId(item.id);
+    const text = (commentById[item.id] ?? "").trim()
+    setSavingId(item.id)
     try {
       await updateDoc(doc(db, "serviceRequests", item.id), {
         workerComment: text ? text : null,
         updatedAt: serverTimestamp(),
-      });
-      Alert.alert("Tallennettu", "Kommentti tallennettu.");
+      })
+      Alert.alert("Tallennettu", "Kommentti tallennettu.")
     } catch (e: any) {
-      console.log(e);
-      Alert.alert("Virhe", e?.message ?? "Kommentin tallennus epäonnistui.");
+      console.log(e)
+      Alert.alert("Virhe", e?.message ?? "Kommentin tallennus epäonnistui.")
     } finally {
-      setSavingId(null);
+      setSavingId(null)
     }
-  };
+  }
 
   const closeWork = async (item: ServiceRequestDoc) => {
-    const text = (commentById[item.id] ?? "").trim();
+    const text = (commentById[item.id] ?? "").trim()
 
     Alert.alert("Suljetaanko työ?", "Työ merkitään valmiiksi.", [
       { text: "Peruuta", style: "cancel" },
@@ -168,29 +186,50 @@ export default function WorkerWorkList() {
         text: "Sulje työ",
         style: "destructive",
         onPress: async () => {
-          setSavingId(item.id);
+          setSavingId(item.id)
           try {
+            let startedAt: Timestamp | null | undefined = item.startedAt ?? null
+            if (!startedAt) {
+              const snap = await getDoc(doc(db, "serviceRequests", item.id))
+              const data: any = snap.data()
+              startedAt = data?.startedAt ?? null
+            }
+
+            let minutes: number | null = null
+            if (startedAt?.toDate) {
+              const startedMs = startedAt.toDate().getTime()
+              minutes = Math.max(1, Math.round((Date.now() - startedMs) / 60000))
+            }
+
+            if (item.activeWorkSessionId) {
+              await updateDoc(doc(db, "workSessions", item.activeWorkSessionId), {
+                endedAt: serverTimestamp(),
+                minutes,
+              })
+            }
+
             await updateDoc(doc(db, "serviceRequests", item.id), {
               status: "done",
               finishedAt: serverTimestamp(),
               workerComment: text ? text : null,
+              activeWorkSessionId: null,
               updatedAt: serverTimestamp(),
-            });
+            })
           } catch (e: any) {
-            console.log(e);
-            Alert.alert("Virhe", e?.message ?? "Sulkeminen epäonnistui.");
+            console.log(e)
+            Alert.alert("Virhe", e?.message ?? "Sulkeminen epäonnistui.")
           } finally {
-            setSavingId(null);
+            setSavingId(null)
           }
         },
       },
-    ]);
-  };
+    ])
+  }
 
   const renderExpanded = (item: ServiceRequestDoc) => {
-    const isSaving = savingId === item.id;
-    const canStart = item.status !== "in_progress" && item.status !== "done";
-    const canClose = item.status !== "done";
+    const isSaving = savingId === item.id
+    const canStart = item.status !== "in_progress" && item.status !== "done"
+    const canClose = item.status !== "done"
 
     return (
       <View style={styles.expandedBox}>
@@ -252,15 +291,18 @@ export default function WorkerWorkList() {
           Vinkki: työn aloitus ja sulku tallentaa kellonajan automaattisesti.
         </Text>
       </View>
-    );
-  };
+    )
+  }
 
   const renderItem = ({ item }: { item: ServiceRequestDoc }) => {
-    const isOpen = openId === item.id;
+    const isOpen = openId === item.id
 
     return (
       <View style={styles.card}>
-        <Pressable onPress={() => toggleOpen(item.id)} style={({ pressed }) => [pressed && styles.btnPressed]}>
+        <Pressable
+          onPress={() => toggleOpen(item.id)}
+          style={({ pressed }) => [pressed && styles.btnPressed]}
+        >
           <View style={styles.rowBetween}>
             <Text style={styles.cardTitle}>{statusFi(item.status)}</Text>
             <Text style={styles.meta}>{timeFi(item.createdAt)}</Text>
@@ -291,8 +333,8 @@ export default function WorkerWorkList() {
 
         {isOpen && renderExpanded(item)}
       </View>
-    );
-  };
+    )
+  }
 
   if (loading) {
     return (
@@ -300,7 +342,7 @@ export default function WorkerWorkList() {
         <ActivityIndicator color={colors.primary} />
         <Text style={styles.meta}>Haetaan työlistaa…</Text>
       </View>
-    );
+    )
   }
 
   return (
@@ -338,9 +380,7 @@ export default function WorkerWorkList() {
 
       {visibleItems.length === 0 ? (
         <View style={styles.emptyBox}>
-          <Text style={styles.meta}>
-            {showDone ? "Ei valmiita töitä." : "Ei aktiivisia töitä."}
-          </Text>
+          <Text style={styles.meta}>{showDone ? "Ei valmiita töitä." : "Ei aktiivisia töitä."}</Text>
         </View>
       ) : (
         <FlatList
@@ -351,7 +391,7 @@ export default function WorkerWorkList() {
         />
       )}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -480,4 +520,4 @@ const styles = StyleSheet.create({
 
   btnPressed: { opacity: 0.9 },
   btnDisabled: { opacity: 0.6 },
-});
+})
