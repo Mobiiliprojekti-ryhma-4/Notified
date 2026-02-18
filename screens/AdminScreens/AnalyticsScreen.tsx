@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react"
-import {View,Text, StyleSheet, ActivityIndicator, Pressable, ScrollView, Dimensions,} from "react-native"
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
-import { PieChart, LineChart } from "react-native-chart-kit"
+import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView, Dimensions, } from "react-native"
+import { collection, getCountFromServer, getDocs, query, where, Timestamp,} from "firebase/firestore"
+import { PieChart, LineChart, BarChart } from "react-native-chart-kit"
+
 import { db } from "../../firebase/Config"
 import colors from "../../theme/colors"
 
@@ -12,7 +13,6 @@ function daysAgoTimestamp(days: number) {
   return Timestamp.fromMillis(ms)
 }
 
-// viimeiset N viikkoavainta muodossa YYYY-WW (ISO-viikko)
 function lastNWeeks(n: number) {
   const out: string[] = []
   const d = new Date()
@@ -34,7 +34,6 @@ function lastNWeeks(n: number) {
   return Array.from(new Set(out)).reverse()
 }
 
-// fallback: laske yearWeek createdAt:sta jos yearWeek puuttuu
 function getISOYearWeekFromTimestamp(ts: any): string | null {
   if (!ts?.toDate) return null
 
@@ -51,23 +50,53 @@ function getISOYearWeekFromTimestamp(ts: any): string | null {
   return `${year}-${ww}`
 }
 
+function formatAvgMinutes(avgMinutes: number) {
+  const h = Math.floor(avgMinutes / 60)
+  const m = avgMinutes % 60
+  if (!h) return `${m} min`
+  return `${h} h ${m} min`
+}
+
+function toMinutesFromSession(data: any): number | null {
+  if (typeof data?.minutes === "number" && data.minutes > 0) return Math.round(data.minutes)
+
+  const s = data?.startedAt?.toDate?.()
+  const e = data?.endedAt?.toDate?.()
+  if (!s || !e) return null
+
+  const diffMs = e.getTime() - s.getTime()
+  if (diffMs <= 0) return null
+  return Math.round(diffMs / 60000)
+}
+
+const chartConfig = {
+  backgroundGradientFrom: colors.background,
+  backgroundGradientTo: colors.background,
+  decimalPlaces: 0,
+  color: () => colors.primary,
+  labelColor: () => colors.text,
+  propsForDots: { r: "4" as const },
+}
+
 export default function AnalyticsScreen() {
   const [loading, setLoading] = useState(true)
   const [rangeDays, setRangeDays] = useState<7 | 30 | 365>(30)
 
   const [total, setTotal] = useState(0)
-
   const [masterYes, setMasterYes] = useState(0)
   const [masterNo, setMasterNo] = useState(0)
-
   const [petsYes, setPetsYes] = useState(0)
   const [petsNo, setPetsNo] = useState(0)
-
   const [imagesYes, setImagesYes] = useState(0)
   const [imagesNo, setImagesNo] = useState(0)
-
   const [weeklyLabels, setWeeklyLabels] = useState<string[]>([])
   const [weeklyCounts, setWeeklyCounts] = useState<number[]>([])
+
+  const [openWorkCount, setOpenWorkCount] = useState(0)
+
+  const [avgWorkMinutes, setAvgWorkMinutes] = useState(0)
+  const [workerLabels, setWorkerLabels] = useState<string[]>([])
+  const [workerCounts, setWorkerCounts] = useState<number[]>([])
 
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -81,10 +110,15 @@ export default function AnalyticsScreen() {
     setError(null)
 
     try {
-      const colRef = collection(db, "serviceRequests")
-      const base = query(colRef, where("createdAt", ">=", since))
+      const srCol = collection(db, "serviceRequests")
+      const [newCountSnap, inProgSnap] = await Promise.all([
+        getCountFromServer(query(srCol, where("status", "==", "new"))),
+        getCountFromServer(query(srCol, where("status", "==", "in_progress"))),
+      ])
+      setOpenWorkCount(newCountSnap.data().count + inProgSnap.data().count)
 
-      const docsSnap = await getDocs(base)
+      const srBase = query(srCol, where("createdAt", ">=", since))
+      const srSnap = await getDocs(srBase)
 
       let totalCount = 0
       let masterYesCount = 0
@@ -96,7 +130,7 @@ export default function AnalyticsScreen() {
 
       const weekMap = new Map<string, number>()
 
-      docsSnap.forEach((doc) => {
+      srSnap.forEach((doc) => {
         const data: any = doc.data()
         totalCount++
 
@@ -112,9 +146,7 @@ export default function AnalyticsScreen() {
         else imagesNoCount++
 
         const yw = data.yearWeek ?? getISOYearWeekFromTimestamp(data.createdAt)
-        if (yw) {
-          weekMap.set(yw, (weekMap.get(yw) ?? 0) + 1)
-        }
+        if (yw) weekMap.set(yw, (weekMap.get(yw) ?? 0) + 1)
       })
 
       setTotal(totalCount)
@@ -126,9 +158,42 @@ export default function AnalyticsScreen() {
       setImagesNo(imagesNoCount)
 
       const weeks = lastNWeeks(12)
-      setWeeklyLabels(weeks.map((w) => w.slice(5)))
+      setWeeklyLabels(weeks.map((w) => w.slice(5))) 
       setWeeklyCounts(weeks.map((w) => weekMap.get(w) ?? 0))
+
+      const wsCol = collection(db, "workSessions")
+      const wsBase = query(wsCol, where("endedAt", ">=", since))
+      const wsSnap = await getDocs(wsBase)
+
+      let sumMinutes = 0
+      let doneCount = 0
+
+      const perWorker = new Map<string, number>()
+
+      wsSnap.forEach((doc) => {
+        const data: any = doc.data()
+
+        const mins = toMinutesFromSession(data)
+        if (typeof mins === "number" && mins > 0) {
+          sumMinutes += mins
+          doneCount++
+        }
+
+        const key: string = data.workerEmail ?? data.workerId ?? "Tuntematon"
+        perWorker.set(key, (perWorker.get(key) ?? 0) + 1)
+      })
+
+      setAvgWorkMinutes(doneCount ? Math.round(sumMinutes / doneCount) : 0)
+
+      const sorted = Array.from(perWorker.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+
+      setWorkerLabels(sorted.map(([name]) => String(name))) 
+      const counts = sorted.map(([, c]) => c)
+      setWorkerCounts(counts.length ? counts : [0])
     } catch (e: any) {
+      console.log(e)
       setError(e?.message ?? String(e))
     } finally {
       setLoading(false)
@@ -189,39 +254,143 @@ export default function AnalyticsScreen() {
           <Card title={`Ilmoituksia yhteensä (${rangeDays} pv)`} value={`${total}`} />
 
           <View style={styles.divider} />
+
           <Text style={styles.sectionTitle}>Yleisavain (Kyllä/Ei %)</Text>
-          <PieChart data={pieMaster} width={chartWidth} height={220} accessor={"population"} backgroundColor={"transparent"} paddingLeft={"12"} center={[0, 0]} chartConfig={chartConfig} />
-          <Text style={styles.smallNote}>Kyllä {pct(masterYes, masterTotal)} • Ei {pct(masterNo, masterTotal)}</Text>
+          <PieChart
+            data={pieMaster}
+            width={chartWidth}
+            height={220}
+            accessor={"population"}
+            backgroundColor={"transparent"}
+            paddingLeft={"12"}
+            center={[0, 0]}
+            chartConfig={chartConfig}
+          />
+          <Text style={styles.smallNote}>
+            Kyllä {pct(masterYes, masterTotal)} • Ei {pct(masterNo, masterTotal)}
+          </Text>
 
           <View style={styles.divider} />
+
           <Text style={styles.sectionTitle}>Kotieläimet (Kyllä/Ei %)</Text>
-          <PieChart data={piePets} width={chartWidth} height={220} accessor={"population"} backgroundColor={"transparent"} paddingLeft={"12"} center={[0, 0]} chartConfig={chartConfig} />
-          <Text style={styles.smallNote}>Kyllä {pct(petsYes, petsTotal)} • Ei {pct(petsNo, petsTotal)}</Text>
+          <PieChart
+            data={piePets}
+            width={chartWidth}
+            height={220}
+            accessor={"population"}
+            backgroundColor={"transparent"}
+            paddingLeft={"12"}
+            center={[0, 0]}
+            chartConfig={chartConfig}
+          />
+          <Text style={styles.smallNote}>
+            Kyllä {pct(petsYes, petsTotal)} • Ei {pct(petsNo, petsTotal)}
+          </Text>
 
           <View style={styles.divider} />
+
           <Text style={styles.sectionTitle}>Kuva vikailmoituksessa (Kyllä/Ei %)</Text>
-          <PieChart data={pieImages} width={chartWidth} height={220} accessor={"population"} backgroundColor={"transparent"} paddingLeft={"12"} center={[0, 0]} chartConfig={chartConfig} />
-          <Text style={styles.smallNote}>Kuva mukana {pct(imagesYes, imagesTotal)} • Ei kuvaa {pct(imagesNo, imagesTotal)}</Text>
+          <PieChart
+            data={pieImages}
+            width={chartWidth}
+            height={220}
+            accessor={"population"}
+            backgroundColor={"transparent"}
+            paddingLeft={"12"}
+            center={[0, 0]}
+            chartConfig={chartConfig}
+          />
+          <Text style={styles.smallNote}>
+            Kuva mukana {pct(imagesYes, imagesTotal)} • Ei kuvaa {pct(imagesNo, imagesTotal)}
+          </Text>
 
           <View style={styles.divider} />
+
           <Text style={styles.sectionTitle}>Ilmoitukset viikoittain</Text>
           <LineChart
-            data={{ labels: weeklyLabels, datasets: [{ data: weeklyCounts.length ? weeklyCounts : [0] }] }}
+            data={{
+              labels: weeklyLabels,
+              datasets: [{ data: weeklyCounts.length ? weeklyCounts : [0] }],
+            }}
             width={chartWidth}
             height={240}
             chartConfig={chartConfig}
             bezier
+            fromZero
           />
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionTitle}>Työt ja työaika</Text>
+
+          <Card title="Avoinna olevat työt (kaikki)" value={`${openWorkCount}`} />
+
+          <Card
+            title="Keskimääräinen työaika"
+            value={avgWorkMinutes ? `${formatAvgMinutes(avgWorkMinutes)} (${avgWorkMinutes} min)` : "—"}
+          />
+
+          <View style={styles.divider} />
+
+          <Text style={[styles.sectionTitle, { marginTop: 6 }]}>
+            Suoritettuja tehtäviä per työntekijä (Top 8)
+          </Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <BarChart
+              data={{
+                labels: workerLabels.length ? workerLabels : ["—"],
+                datasets: [{ data: workerCounts.length ? workerCounts : [0] }],
+              }}
+              width={Math.max(chartWidth, (workerLabels.length || 1) * 140)}
+              height={320}
+              fromZero
+              showValuesOnTopOfBars
+              verticalLabelRotation={35}
+              xLabelsOffset={-5}
+              yAxisLabel={""}
+              yAxisSuffix={""}
+              chartConfig={{
+                ...chartConfig,
+                
+                labelColor: () => colors.text,
+                color: () => colors.primary,
+                propsForBackgroundLines: {
+                  strokeWidth: 1,
+                  stroke: "rgba(0,0,0,0.12)",
+                  strokeDasharray: "6",
+                },
+              }}
+              style={{ borderRadius: 14 }}
+            />
+          </ScrollView>
         </>
       )}
     </ScrollView>
   )
 }
 
-function RangeButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function RangeButton({
+  label,
+  active,
+  onPress,
+}: {
+  label: string
+  active: boolean
+  onPress: () => void
+}) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.rangeBtn, active && styles.rangeBtnActive, pressed && { opacity: 0.9 }]}>
-      <Text style={[styles.rangeBtnText, active && styles.rangeBtnTextActive]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.rangeBtn,
+        active && styles.rangeBtnActive,
+        pressed && { opacity: 0.9 },
+      ]}
+    >
+      <Text style={[styles.rangeBtnText, active && styles.rangeBtnTextActive]}>
+        {label}
+      </Text>
     </Pressable>
   )
 }
@@ -235,111 +404,101 @@ function Card({ title, value }: { title: string; value: string }) {
   )
 }
 
-const chartConfig = {
-  backgroundGradientFrom: colors.background,
-  backgroundGradientTo: colors.background,
-  decimalPlaces: 0,
-  color: () => colors.primary,
-  labelColor: () => colors.text,
-  propsForDots: { r: "4" },
-}
-
 const styles = StyleSheet.create({
-  container: { 
-    padding: 16, 
-    backgroundColor: 
-    colors.background, 
-    gap: 12 
+  container: {
+    padding: 16,
+    backgroundColor: colors.background,
+    gap: 12,
   },
-  title: { 
-    fontSize: 22, 
-    fontWeight: "800", 
-    color: colors.text, 
-    marginBottom: 4 
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 4,
   },
-  sectionTitle: { 
-    marginTop: 2, 
-    fontSize: 16, 
-    fontWeight: "800", 
-    color: colors.text 
+  sectionTitle: {
+    marginTop: 2,
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text,
   },
-  smallNote: { 
-    color: colors.mutedText, 
-    fontWeight: "700", 
-    marginTop: -6, 
-    marginBottom: 6 
+  smallNote: {
+    color: colors.mutedText,
+    fontWeight: "700",
+    marginTop: 6,
   },
-  divider: { 
-    height: 1, 
-    backgroundColor: "rgba(0,0,0,0.08)", 
-    marginVertical: 6 
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    marginVertical: 6,
   },
-  card: { 
-    padding: 14, 
-    borderRadius: 14, 
-    backgroundColor: "#fff", 
-    borderWidth: 1, 
-    borderColor: "rgba(0,0,0,0.08)" 
+  card: {
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
   },
-  cardTitle: { 
-    color: colors.mutedText, 
-    fontWeight: "700", 
-    marginBottom: 6 
+  cardTitle: {
+    color: colors.mutedText,
+    fontWeight: "700",
+    marginBottom: 6,
   },
-  cardValue: { 
-    color: colors.text, 
-    fontSize: 20, 
-    fontWeight: "900" 
+  cardValue: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "900",
   },
-  loadingRow: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 10, 
-    paddingVertical: 10 
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
   },
-  loadingText: { 
-    color: colors.mutedText, 
-    fontWeight: "700" 
+  loadingText: {
+    color: colors.mutedText,
+    fontWeight: "700",
   },
-  errorText: { 
-    color: "crimson", 
-    fontWeight: "700" 
+  errorText: {
+    color: "crimson",
+    fontWeight: "700",
   },
-  rangeRow: { 
-    flexDirection: "row", 
-    gap: 8, marginBottom: 6 
+  rangeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 6,
   },
-  rangeBtn: { 
-    flex: 1, 
-    height: 40, 
-    borderRadius: 12, 
-    alignItems: "center", 
-    justifyContent: "center", 
-    backgroundColor: "#fff", 
-    borderWidth: 1, 
-    borderColor: "rgba(0,0,0,0.10)" 
+  rangeBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.10)",
   },
-  rangeBtnActive: { 
-    borderColor: colors.primary 
+  rangeBtnActive: {
+    borderColor: colors.primary,
   },
-  rangeBtnText: { 
-    color: colors.text, 
-    fontWeight: "800" 
+  rangeBtnText: {
+    color: colors.text,
+    fontWeight: "800",
   },
-  rangeBtnTextActive: { 
-    color: colors.primary 
+  rangeBtnTextActive: {
+    color: colors.primary,
   },
-  refreshBtn: { 
-    height: 40, 
-    borderRadius: 12, 
-    backgroundColor: "#fff", 
-    borderWidth: 1, 
-    borderColor: "rgba(0,0,0,0.10)", 
-    alignItems: "center", 
-    justifyContent: "center" 
+  refreshBtn: {
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.10)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  refreshBtnText: { 
-    fontWeight: "900", 
-    color: colors.text 
+  refreshBtnText: {
+    fontWeight: "900",
+    color: colors.text,
   },
 })
