@@ -1,32 +1,69 @@
-## Installation 
+# HuoltoHommeli
 
 
-Get started
+## Idea
 
-npm ci
-npx expo start
+HuoltoHommeli on React Native (Expo) -mobiilisovellus taloyhtiön/huoltoyhtiön vikailmoitusten hallintaan.
+
+### Sovelluksessa on kolme roolia:
+
+- Customer (asiakas): tekee vikailmoituksia ja näkee omat ilmoitukset
+
+- Worker (työntekijä): näkee hänelle määrätyt työt, aloittaa työn, lisää työlle kommentin ja sulkee työn valmiiksi
+
+- Admin (ylläpito): näkee kaikki vikailmoitukset, voi määrätä työntekijän työlle, näkee työajanseurannan ja analytiikkaa
+
+## Teknologiat
+
+- React Native + Expo
+
+- React Navigation (Drawer)
+
+- Firebase
+
+- Authentication (kirjautuminen / rekisteröinti)
+
+- Firestore (vikailmoitukset, käyttäjät, työvuorot, notifikaatiot)
+
+- Storage (kuvien tallennus vikailmoituksiin)
+
+- expo-image-picker (kamerasta/galleriasta kuvat vikailmoitukseen)
+
+## Rakenne (yksinkertaistettuna)
+
+- navigation/ – DrawerNavigator ja roolipohjainen navigointi
+
+### screens/
+
+- UserScreens/ – asiakasnäkymät (lomake, omat vikailmoitukset)
+
+- WorkerScreens/ – työntekijän työlista ja työajanseuranta
+
+### AdminScreens/ – ylläpidon vikailmoitukset, käyttäjälista, työajanseuranta, analytiikka
+
+- services/ – auth-palvelu ym.
+
+- firebase/Config.ts – Firebase-konfiguraatio
+
+- theme/ – värit (colors)
 
 
+## Sovelluksen ajaminen puhelimessa (Expo Go)
 
-npm install @react-navigation/native
+### Android
 
-npm install @react-navigation/native-stack
+Lataa play kaupasta Expo Go
 
-npx expo install react-native-screens react-native-safe-area-context
+Skannaa QR-koodi (Expo Go:n scan-toiminnolla)
 
-npm install @react-navigation/drawer
+Sovellus avautuu puhelimeen
 
-npx expo install react-native-gesture-handler react-native-reanimated
+Huom: puhelimen ja tietokoneen pitää yleensä olla samassa verkossa.
 
-npm install react-native-gesture-handler react-native-reanimated
- 
-For icons  
-npx expo install @expo/vector-icons
+## Riippuvuuksien asennus ja käynnistys
 
+ Hae Main haara omalle koneelle ja lisää env tidostoon oikeat tiedot
 
-Firebase setup
-npx expo install firebase
-npx expo install @react-native-async-storage/async-storage
-npx expo install expo-image-picker expo-location
-npx expo install expo-constants
-npx expo install react-native-maps expo-location
+ Asenna paketit: **npm install**
+
+ Käynnistä Expo: **npx expo start**
