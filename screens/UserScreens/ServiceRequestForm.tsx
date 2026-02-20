@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react"
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image, Pressable,} from "react-native"
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { addDoc,collection, serverTimestamp, getDocs, query, where,} from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import * as ImagePicker from "expo-image-picker"
 import { db, auth } from "../../firebase/Config"
@@ -33,6 +33,11 @@ type ServiceRequestCreate = {
   startedAt: any | null
   finishedAt: any | null
   workerComment: string | null
+
+ 
+  archivedByUser?: boolean
+  archivedAt?: any | null
+  archivedYearMonth?: string | null
 }
 
 type FieldProps = {
@@ -67,7 +72,12 @@ function YesNoToggle({
         ]}
       >
         <View style={[styles.radio, value === "Kyllä" && styles.radioSelected]} />
-        <Text style={[styles.toggleText, value === "Kyllä" && styles.toggleTextSelected]}>
+        <Text
+          style={[
+            styles.toggleText,
+            value === "Kyllä" && styles.toggleTextSelected,
+          ]}
+        >
           Kyllä
         </Text>
       </Pressable>
@@ -81,7 +91,12 @@ function YesNoToggle({
         ]}
       >
         <View style={[styles.radio, value === "Ei" && styles.radioSelected]} />
-        <Text style={[styles.toggleText, value === "Ei" && styles.toggleTextSelected]}>
+        <Text
+          style={[
+            styles.toggleText,
+            value === "Ei" && styles.toggleTextSelected,
+          ]}
+        >
           Ei
         </Text>
       </Pressable>
@@ -94,6 +109,13 @@ async function uriToBlob(uri: string): Promise<Blob> {
   return await response.blob()
 }
 
+function yearMonthNow() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  return `${y}-${m}`
+}
+
 export default function ServiceRequestForm() {
   const [issueDescription, setIssueDescription] = useState("")
   const [address, setAddress] = useState("")
@@ -104,7 +126,6 @@ export default function ServiceRequestForm() {
 
   const [submitting, setSubmitting] = useState(false)
 
- 
   const [imageUris, setImageUris] = useState<string[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
 
@@ -235,9 +256,33 @@ export default function ServiceRequestForm() {
         startedAt: null,
         finishedAt: null,
         workerComment: null,
+
+        
+        archivedByUser: false,
+        archivedAt: null,
+        archivedYearMonth: null,
       }
 
-      await addDoc(collection(db, "serviceRequests"), payload)
+      
+      const reqRef = await addDoc(collection(db, "serviceRequests"), payload)
+
+      
+      const adminsSnap = await getDocs(
+        query(collection(db, "users"), where("role", "==", "admin"))
+      )
+
+      await Promise.all(
+        adminsSnap.docs.map((u) =>
+          addDoc(collection(db, "users", u.id, "notifications"), {
+            title: "Uusi vikailmoitus",
+            body: `${payload.address} – ${payload.issueDescription.slice(0, 60)}`,
+            type: "new_request",
+            requestId: reqRef.id,
+            createdAt: serverTimestamp(),
+            read: false,
+          })
+        )
+      )
 
       Alert.alert("Lähetetty", "Vikailmoitus lähetettiin onnistuneesti.")
       resetForm()
@@ -424,7 +469,6 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
 
-  
   toggleRow: {
     flexDirection: "row",
     gap: 10,
