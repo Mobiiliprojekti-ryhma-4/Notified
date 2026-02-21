@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react"
-import {
-  ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, View, Pressable, TextInput,} from "react-native"
-import {addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, Timestamp, updateDoc, where,} from "firebase/firestore"
+import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, View, Pressable, TextInput,} from "react-native"
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, Timestamp, updateDoc, where,} from "firebase/firestore"
 import { auth, db } from "../../firebase/Config"
 import colors from "../../theme/colors"
 import { useAuth } from "../../context/AuthContext"
@@ -48,6 +47,17 @@ function timeFi(ts?: Timestamp | null) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+  })
+}
+
+async function sendNotification(
+  userId: string,
+  payload: { title: string; body: string; type: string; requestId: string }
+) {
+  await addDoc(collection(db, "users", userId, "notifications"), {
+    ...payload,
+    createdAt: serverTimestamp(),
+    read: false,
   })
 }
 
@@ -112,7 +122,6 @@ export default function WorkerWorkList() {
     )
 
     return unsub
-
   }, [role])
 
   const visibleItems = useMemo(() => {
@@ -136,7 +145,6 @@ export default function WorkerWorkList() {
 
     setSavingId(item.id)
     try {
-
       const sessionRef = await addDoc(collection(db, "workSessions"), {
         serviceRequestId: item.id,
         workerId: user.uid,
@@ -208,6 +216,7 @@ export default function WorkerWorkList() {
               })
             }
 
+          
             await updateDoc(doc(db, "serviceRequests", item.id), {
               status: "done",
               finishedAt: serverTimestamp(),
@@ -215,6 +224,33 @@ export default function WorkerWorkList() {
               activeWorkSessionId: null,
               updatedAt: serverTimestamp(),
             })
+
+            if (item.userId) {
+              await sendNotification(item.userId, {
+                title: "Työ valmis",
+                body: `Vikailmoitus osoitteessa ${item.address} on merkitty valmiiksi.`,
+                type: "request_done",
+                requestId: item.id,
+              })
+            }
+
+            
+            const adminsSnap = await getDocs(
+              query(collection(db, "users"), where("role", "==", "admin"))
+            )
+
+            await Promise.all(
+              adminsSnap.docs.map((u) =>
+                sendNotification(u.id, {
+                  title: "Työ suljettu",
+                  body: `${item.address} – työ merkitty valmiiksi.`,
+                  type: "request_done_admin",
+                  requestId: item.id,
+                })
+              )
+            )
+
+            Alert.alert("Valmis", "Työ merkitty valmiiksi ja ilmoitus lähetetty.")
           } catch (e: any) {
             console.log(e)
             Alert.alert("Virhe", e?.message ?? "Sulkeminen epäonnistui.")
@@ -349,7 +385,7 @@ export default function WorkerWorkList() {
     <View style={styles.screen}>
       <Text style={styles.title}>Minulle määrätyt työt</Text>
 
-      {/*Toggle-napit */}
+      {/* Toggle-napit */}
       <View style={styles.filterRow}>
         <Pressable
           onPress={() => setShowDone(false)}
@@ -359,9 +395,7 @@ export default function WorkerWorkList() {
             pressed && styles.btnPressed,
           ]}
         >
-          <Text style={[styles.filterText, !showDone && styles.filterTextActive]}>
-            Aktiiviset
-          </Text>
+          <Text style={[styles.filterText, !showDone && styles.filterTextActive]}>Aktiiviset</Text>
         </Pressable>
 
         <Pressable
@@ -372,9 +406,7 @@ export default function WorkerWorkList() {
             pressed && styles.btnPressed,
           ]}
         >
-          <Text style={[styles.filterText, showDone && styles.filterTextActive]}>
-            Valmiit työt
-          </Text>
+          <Text style={[styles.filterText, showDone && styles.filterTextActive]}>Valmiit työt</Text>
         </Pressable>
       </View>
 
@@ -396,12 +428,7 @@ export default function WorkerWorkList() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, padding: 12 },
-  title: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: colors.text,
-    marginBottom: 10,
-  },
+  title: { fontSize: 18, fontWeight: "900", color: colors.text, marginBottom: 10 },
 
   filterRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   filterBtn: {
@@ -442,11 +469,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: "rgba(255,255,255,0.55)",
   },
-  rowBetween: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
+  rowBetween: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
   cardTitle: { fontWeight: "900", color: colors.text },
 
   line: { color: colors.text, marginTop: 6 },
@@ -454,20 +477,9 @@ const styles = StyleSheet.create({
   meta: { color: colors.mutedText, marginTop: 6 },
 
   thumbRow: { flexDirection: "row", gap: 8, marginTop: 8 },
-  thumb: {
-    width: 90,
-    height: 70,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.specialColor,
-  },
+  thumb: { width: 90, height: 70, borderRadius: 10, borderWidth: 1, borderColor: colors.specialColor },
 
-  expandedBox: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.08)",
-    paddingTop: 10,
-  },
+  expandedBox: { marginTop: 10, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.08)", paddingTop: 10 },
 
   commentInput: {
     marginTop: 6,
@@ -482,11 +494,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
 
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 10,
-  },
+  actionRow: { flexDirection: "row", gap: 10, marginTop: 10 },
 
   btn: {
     paddingVertical: 12,
