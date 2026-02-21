@@ -1,7 +1,5 @@
 # HuoltoHommeli
 
-## Miksi 
-
 ## Idea
 
 HuoltoHommeli on React Native (Expo) -mobiilisovellus taloyhtiön/huoltoyhtiön vikailmoitusten hallintaan.
